@@ -34,3 +34,16 @@ export const SEND_MESSAGE = gql`
     }
   }
 `;
+export const MESSAGE_ADDED = gql`
+  subscription MessageAdded($roomId: ID!) {
+    messageAdded(roomId: $roomId) {
+      id
+      content
+      sender {
+        id
+        username
+      }
+      createdAt
+    }
+  }
+`;

@@ -6,7 +6,7 @@ import User from '../models/User.js';
 import Room from '../models/Room.js';
 import Message from '../models/Message.js';
 
-const pubsub = new PubSub();
+export const pubsub = new PubSub();
 const MESSAGE_ADDED = 'MESSAGE_ADDED';
 
 export const typeDefs = gql`
@@ -144,7 +144,8 @@ export const resolvers = {
       });
 
       const populatedMessage = await message.populate(['sender', 'replyTo', 'roomId']);
-      // Publish to subscription specific to the room
+      // Debug: Log when publishing
+      console.log('[PUBSUB] Publishing messageAdded for room:', roomId, populatedMessage);
       pubsub.publish(`${MESSAGE_ADDED}_${roomId}`, { messageAdded: populatedMessage });
 
       return populatedMessage;
@@ -153,8 +154,10 @@ export const resolvers = {
 
   Subscription: {
     messageAdded: {
-      subscribe: (_, { roomId }) =>
-        pubsub.asyncIterator([`${MESSAGE_ADDED}_${roomId}`])
-    }
-  }
+      subscribe: (_, { roomId }) => {
+        return pubsub.asyncIterator(`MESSAGE_ADDED_${roomId}`);
+      },
+    },
+  },
+
 };
