@@ -50,11 +50,12 @@ const startServer = async () => {
     schema,
     context: async (ctx, msg, args) => {
       // You can extract auth token from connectionParams if needed
-      let user = null; console.log('[WS] New WebSocket connection:', ctx.connectionParams);
+      let user = null;
+      console.log('[WS] New WebSocket connection:', ctx.connectionParams);
       const token = ctx.connectionParams?.Authorization || ctx.connectionParams?.authorization || "";
       if (token) {
         user = verifyToken(token.replace("Bearer ", ""));
-        console.log('[WS] New WebSocket connection:', ctx.connectionParams);
+        console.log('[WS] User authenticated via WebSocket:', user?.username);
       }
       return { user, pubsub };
     }, onSubscribe: (ctx, msg) => {
@@ -65,7 +66,9 @@ const startServer = async () => {
     console.log('[SERVER] New WebSocket connection established'); socket.on('close', (code, reason) => {
       console.log('[SERVER] WebSocket closed:', code, reason?.toString());
     });
-  }); console.log("[SERVER] pubsub created:", pubsub, pubsub.constructor.name);
+  });
+  
+  console.log("[SERVER] pubsub created:", pubsub, pubsub.constructor.name);
   const PORT = process.env.PORT || 4000;
   httpServer.listen(PORT, () => {
     console.log(`🚀 HTTP Server ready at http://localhost:${PORT}/graphql`);

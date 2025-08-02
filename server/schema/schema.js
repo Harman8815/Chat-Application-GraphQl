@@ -146,7 +146,7 @@ export const resolvers = {
       const populatedMessage = await message.populate(['sender', 'replyTo', 'roomId']);
       // Debug: Log when publishing
       console.log('[PUBSUB] Publishing messageAdded for room:', roomId, populatedMessage);
-      pubsub.publish(`${MESSAGE_ADDED}_${roomId}`, { messageAdded: populatedMessage });
+      pubsub.publish(`MESSAGE_ADDED_${roomId}`, { messageAdded: populatedMessage });
 
       return populatedMessage;
     }
@@ -155,7 +155,8 @@ export const resolvers = {
   Subscription: {
     messageAdded: {
       subscribe: (_, { roomId }) => {
-        return pubsub.asyncIterator(`MESSAGE_ADDED_${roomId}`);
+        console.log('[SUBSCRIPTION] Setting up subscription for room:', roomId);
+        return pubsub.asyncIterableIterator(`MESSAGE_ADDED_${roomId}`);
       },
     },
   },

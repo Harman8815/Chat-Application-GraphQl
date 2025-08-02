@@ -14,9 +14,11 @@ const RoomPage = () => {
 
 
   // Query for messages
-  const { loading, error, data } = useQuery(GET_MESSAGES, {
+  const { loading, error, data, refetch } = useQuery(GET_MESSAGES, {
     variables: { roomId: roomID },
     skip: !roomID,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
     onCompleted: (data) => {
       console.log('[CLIENT] Initial messages loaded for room:', roomID, data?.messages);
     },
@@ -40,20 +42,33 @@ const RoomPage = () => {
     onData: ({ data }) => {
       const newMessage = data.data?.messageAdded;
       if (newMessage) {
-        setMessages((prev) => [...prev, newMessage]);
-        console.log('[CLIENT] Subscription received new message:', newMessage);
+        setMessages((prev) => {
+          // Check if message already exists to prevent duplicates
+          const exists = prev.some(msg => msg.id === newMessage.id);
+          if (exists) {
+            console.log('[CLIENT] Message already exists, skipping:', newMessage.id);
+            return prev;
+          }
+          console.log('[CLIENT] Subscription received new message:', newMessage);
+          return [...prev, newMessage];
+        });
       } else {
         console.log('[CLIENT] Subscription received data but no messageAdded:', data);
       }
     },
-    // onError: (err) => {
-    //   console.error('[CLIENT] Subscription error:', err);
-    // },
+    onError: (err) => {
+      console.error('[CLIENT] Subscription error:', err);
+    },
   });
 
   useEffect(() => {
     if (!roomID) return;
     console.log('[CLIENT] Subscribing to messages for room:', roomID);
+    
+    // Log subscription status
+    return () => {
+      console.log('[CLIENT] Cleaning up subscription for room:', roomID);
+    };
   }, [roomID]);
 
   useEffect(() => {

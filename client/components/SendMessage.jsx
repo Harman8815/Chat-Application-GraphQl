@@ -8,6 +8,8 @@ export const SendMessage = ({ roomId, onMessageSent }) => {
   const [content, setContent] = useState("");
 
   const [sendMessage, { loading }] = useMutation(SEND_MESSAGE, {
+    refetchQueries: ['GetMessages'],
+    awaitRefetchQueries: true,
     onCompleted: (data) => {
       setContent("");
       if (onMessageSent) onMessageSent(data.sendMessage);
