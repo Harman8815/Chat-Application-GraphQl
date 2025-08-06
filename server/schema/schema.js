@@ -9,6 +9,17 @@ import Message from '../models/Message.js';
 export const pubsub = new PubSub();
 const MESSAGE_ADDED = 'MESSAGE_ADDED';
 
+// Utility to generate safe random strings
+const safeString = (str, prefix = 'unknown') => {
+  if (str && typeof str === 'string' && str.trim()) return str;
+  return `${prefix}_${Math.random().toString(36).substring(2, 8)}`;
+};
+
+// Utility to generate safe random date
+const safeDate = (date) => {
+  return date ? new Date(date).toISOString() : new Date().toISOString();
+};
+
 export const typeDefs = gql`
   type User {
     id: ID!
@@ -53,6 +64,7 @@ export const typeDefs = gql`
   }
 
   type Query {
+    me: User!
     messages(roomId: ID!): [Message!]!
     rooms: [Room!]!
     users: [User!]!
@@ -72,18 +84,61 @@ export const typeDefs = gql`
 `;
 
 export const resolvers = {
+  // ✅ Ensure all non-nullable fields are safe
+  User: {
+    id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
+    username: (parent) => safeString(parent.username, 'user'),
+    email: (parent) => parent.email || null,
+    bio: (parent) => parent.bio || '',
+    isOnline: (parent) => parent.isOnline ?? false,
+    lastOnline: (parent) => safeDate(parent.lastOnline),
+    role: (parent) => parent.role || 'member',
+    contacts: (parent) => parent.contacts || [],
+    notificationsEnabled: (parent) => parent.notificationsEnabled ?? true,
+    emailVerified: (parent) => parent.emailVerified ?? false,
+    createdAt: (parent) => safeDate(parent.createdAt),
+    updatedAt: (parent) => safeDate(parent.updatedAt)
+  },
+  Room: {
+    id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
+    name: (parent) => safeString(parent.name, 'room'),
+    isGroup: (parent) => parent.isGroup ?? false,
+    members: (parent) => parent.members || [],
+    createdBy: (parent) => parent.createdBy || null,
+    createdAt: (parent) => safeDate(parent.createdAt),
+    updatedAt: (parent) => safeDate(parent.updatedAt)
+  },
+  Message: {
+    id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
+    content: (parent) => safeString(parent.content, 'message'),
+    sender: (parent) => parent.sender || {},
+    roomId: (parent) => parent.roomId || {},
+    readBy: (parent) => parent.readBy || [],
+    replyTo: (parent) => parent.replyTo || null,
+    status: (parent) => parent.status || 'sent',
+    createdAt: (parent) => safeDate(parent.createdAt),
+    updatedAt: (parent) => safeDate(parent.updatedAt)
+  },
+
   Query: {
+    me: async (_, __, { user }) => {
+      if (!user) throw new Error("Not authenticated");
+      const foundUser = await User.findById(user.id);
+      return foundUser || { username: safeString(null, 'user') };
+    },
     messages: async (_, { roomId }, { user }) => {
       if (!user) throw new Error("Not authenticated");
-      return await Message.find({ roomId })
+      const msgs = await Message.find({ roomId })
         .populate(['sender', 'replyTo', 'roomId'])
         .sort({ createdAt: 1 });
+      return msgs || [];
     },
     rooms: async (_, __, { user }) => {
       if (!user) throw new Error("Not authenticated");
-      return await Room.find({ members: user.id }).populate('members');
+      const rms = await Room.find({ members: user.id }).populate('members');
+      return rms || [];
     },
-    users: async () => await User.find()
+    users: async () => (await User.find()) || [],
   },
 
   Mutation: {
@@ -92,7 +147,7 @@ export const resolvers = {
       if (existing) throw new Error("Username already taken");
 
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = await User.create({ username, email, passwordHash });
+      const user = await User.create({ username: safeString(username), email, passwordHash });
 
       const token = generateToken(user);
       return { token, user };
@@ -102,7 +157,7 @@ export const resolvers = {
       const user = await User.findOne({ username });
       if (!user) throw new Error("User not found");
 
-      const valid = await bcrypt.compare(password, user.passwordHash);
+      const valid = await bcrypt.compare(password, user.passwordHash || '');
       if (!valid) throw new Error("Invalid password");
 
       const token = generateToken(user);
@@ -117,7 +172,7 @@ export const resolvers = {
       if (!user) throw new Error("Not authenticated");
       return await User.findByIdAndUpdate(
         user.id,
-        { bio, notificationsEnabled },
+        { bio: bio || '', notificationsEnabled: notificationsEnabled ?? true },
         { new: true }
       );
     },
@@ -125,9 +180,9 @@ export const resolvers = {
     createRoom: async (_, { name, isGroup, members }, { user }) => {
       if (!user) throw new Error("Not authenticated");
       const room = await Room.create({
-        name,
-        isGroup,
-        members: [...members, user.id],
+        name: safeString(name, 'room'),
+        isGroup: isGroup ?? false,
+        members: [...(members || []), user.id],
         createdBy: user.id
       });
       return room.populate('members');
@@ -137,15 +192,14 @@ export const resolvers = {
       if (!user) throw new Error("Not authenticated");
 
       const message = await Message.create({
-        content,
+        content: safeString(content, 'message'),
         sender: user.id,
         roomId,
         replyTo: replyTo || null
       });
 
       const populatedMessage = await message.populate(['sender', 'replyTo', 'roomId']);
-      // Debug: Log when publishing
-      console.log('[PUBSUB] Publishing messageAdded for room:', roomId, populatedMessage);
+      console.log('[PUBSUB] Publishing messageAdded for room:', roomId);
       pubsub.publish(`MESSAGE_ADDED_${roomId}`, { messageAdded: populatedMessage });
 
       return populatedMessage;
@@ -160,5 +214,4 @@ export const resolvers = {
       },
     },
   },
-
 };

@@ -104,10 +104,12 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
               >
-                <Link  href={{
-    pathname: `/room/${room.id}`,
-    query: { name: room.name, createdAt: room.createdAt }
-  }}>
+                <Link
+                  href={{
+                    pathname: `/room/${room.id}`,
+                    query: { name: room.name, createdAt: room.createdAt },
+                  }}
+                >
                   <Card className="glassmorphism border-0 card-hover cursor-pointer group">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
