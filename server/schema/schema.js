@@ -7,15 +7,12 @@ import Room from '../models/Room.js';
 import Message from '../models/Message.js';
 
 export const pubsub = new PubSub();
-const MESSAGE_ADDED = 'MESSAGE_ADDED';
 
-// Utility to generate safe random strings
 const safeString = (str, prefix = 'unknown') => {
   if (str && typeof str === 'string' && str.trim()) return str;
   return `${prefix}_${Math.random().toString(36).substring(2, 8)}`;
 };
 
-// Utility to generate safe random date
 const safeDate = (date) => {
   return date ? new Date(date).toISOString() : new Date().toISOString();
 };
@@ -68,13 +65,15 @@ export const typeDefs = gql`
     messages(roomId: ID!): [Message!]!
     rooms: [Room!]!
     users: [User!]!
+    getRoomShareLink(roomId: ID!): String!
+    getUserChatLink(userId: ID!): String!
   }
 
   type Mutation {
+    createGroup(name: String!): Room!
     signup(username: String!, email: String, password: String!): AuthPayload!
     login(username: String!, password: String!): AuthPayload!
     updateProfile(bio: String, notificationsEnabled: Boolean): User!
-    createRoom(name: String!, isGroup: Boolean, members: [ID!]!): Room!
     sendMessage(content: String!, roomId: ID!, replyTo: ID): Message!
   }
 
@@ -84,7 +83,6 @@ export const typeDefs = gql`
 `;
 
 export const resolvers = {
-  // ✅ Ensure all non-nullable fields are safe
   User: {
     id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
     username: (parent) => safeString(parent.username, 'user'),
@@ -123,51 +121,69 @@ export const resolvers = {
   Query: {
     me: async (_, __, { user }) => {
       if (!user) throw new Error("Not authenticated");
-      const foundUser = await User.findById(user.id);
-      return foundUser || { username: safeString(null, 'user') };
+      return await User.findById(user.id);
     },
     messages: async (_, { roomId }, { user }) => {
       if (!user) throw new Error("Not authenticated");
-      const msgs = await Message.find({ roomId })
+      return await Message.find({ roomId })
         .populate(['sender', 'replyTo', 'roomId'])
         .sort({ createdAt: 1 });
-      return msgs || [];
     },
     rooms: async (_, __, { user }) => {
       if (!user) throw new Error("Not authenticated");
-      const rms = await Room.find({ members: user.id }).populate('members');
-      return rms || [];
+      return await Room.find({ members: user.id }).populate('members');
     },
-    users: async () => (await User.find()) || [],
+    users: async () => await User.find(),
+    getRoomShareLink: async (_, { roomId }, { user }) => {
+      if (!user) throw new Error("Not authenticated");
+      const room = await Room.findById(roomId);
+      if (!room) throw new Error("Room not found");
+      return `${process.env.FRONTEND_URL}/join/room/${room.id}`;
+    },
+    getUserChatLink: async (_, { userId }, { user }) => {
+      if (!user) throw new Error("Not authenticated");
+      const targetUser = await User.findById(userId);
+      if (!targetUser) throw new Error("User not found");
+      return `${process.env.FRONTEND_URL}/chat/user/${targetUser.id}`;
+    }
   },
 
   Mutation: {
+    createGroup: async (_, { name }, { user }) => {
+      if (!user) throw new Error("Not authenticated");
+      const groupName = name.trim();
+      const existingGroup = await Room.findOne({
+        name: { $regex: `^${groupName}$`, $options: 'i' },
+        isGroup: true
+      });
+      if (existingGroup) throw new Error("Group with this name already exists");
+      const group = await Room.create({
+        name: groupName,
+        isGroup: true,
+        members: [user.id],
+        createdBy: user.id
+      });
+      return group.populate('members');
+    },
     signup: async (_, { username, email, password }) => {
       const existing = await User.findOne({ username });
       if (existing) throw new Error("Username already taken");
-
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await User.create({ username: safeString(username), email, passwordHash });
-
       const token = generateToken(user);
       return { token, user };
     },
-
     login: async (_, { username, password }) => {
       const user = await User.findOne({ username });
       if (!user) throw new Error("User not found");
-
       const valid = await bcrypt.compare(password, user.passwordHash || '');
       if (!valid) throw new Error("Invalid password");
-
       const token = generateToken(user);
       user.isOnline = true;
       user.lastOnline = new Date();
       await user.save();
-
       return { token, user };
     },
-
     updateProfile: async (_, { bio, notificationsEnabled }, { user }) => {
       if (!user) throw new Error("Not authenticated");
       return await User.findByIdAndUpdate(
@@ -176,42 +192,23 @@ export const resolvers = {
         { new: true }
       );
     },
-
-    createRoom: async (_, { name, isGroup, members }, { user }) => {
-      if (!user) throw new Error("Not authenticated");
-      const room = await Room.create({
-        name: safeString(name, 'room'),
-        isGroup: isGroup ?? false,
-        members: [...(members || []), user.id],
-        createdBy: user.id
-      });
-      return room.populate('members');
-    },
-
     sendMessage: async (_, { content, roomId, replyTo }, { user }) => {
       if (!user) throw new Error("Not authenticated");
-
       const message = await Message.create({
         content: safeString(content, 'message'),
         sender: user.id,
         roomId,
         replyTo: replyTo || null
       });
-
       const populatedMessage = await message.populate(['sender', 'replyTo', 'roomId']);
-      console.log('[PUBSUB] Publishing messageAdded for room:', roomId);
       pubsub.publish(`MESSAGE_ADDED_${roomId}`, { messageAdded: populatedMessage });
-
       return populatedMessage;
     }
   },
 
   Subscription: {
     messageAdded: {
-      subscribe: (_, { roomId }) => {
-        console.log('[SUBSCRIPTION] Setting up subscription for room:', roomId);
-        return pubsub.asyncIterableIterator(`MESSAGE_ADDED_${roomId}`);
-      },
-    },
-  },
+      subscribe: (_, { roomId }) => pubsub.asyncIterableIterator(`MESSAGE_ADDED_${roomId}`)
+    }
+  }
 };

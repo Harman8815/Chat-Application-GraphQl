@@ -30,7 +30,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     if (user) {
-      router.push("/dashboard");
+      router.push("/room");
     }
   }, [user, router]);
 

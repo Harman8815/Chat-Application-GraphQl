@@ -21,3 +21,20 @@ export const SIGNUP = gql`
     }
   }
 `;
+export const CREATE_GROUP = gql`
+  mutation CreateGroup($name: String!) {
+    createGroup(name: $name) {
+      id
+      name
+      isGroup
+      members {
+        id
+        username
+      }
+      createdBy {
+        id
+        username
+      }
+    }
+  }
+`;
