@@ -38,3 +38,20 @@ export const CREATE_GROUP = gql`
     }
   }
 `;
+export const JOIN_GROUP = gql`
+  mutation JoinGroup($name: String!) {
+    joinGroup(name: $name) {
+      id
+      name
+      isGroup
+      members {
+        id
+        username
+      }
+      createdBy {
+        id
+        username
+      }
+    }
+  }
+`;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { GET_ROOMS } from "../../graphql/queries";
 import { CREATE_GROUP } from "../../graphql/mutation";
+import { JOIN_GROUP} from "../../graphql/mutation"; // Import here
 import { motion } from "framer-motion";
 import { MessageCircle, Users, Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,9 +18,11 @@ export default function Home() {
   const { user } = useAuth();
   const { data, loading, error, refetch } = useQuery(GET_ROOMS);
   const [createGroup] = useMutation(CREATE_GROUP);
+  const [joinGroup] = useMutation(JOIN_GROUP);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [groupName, setGroupName] = useState("");
+  const [joinGroupName, setJoinGroupName] = useState("");
 
   if (loading) {
     return (
@@ -50,23 +53,23 @@ export default function Home() {
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) return;
-
-    const exists = data.rooms.some(
-      (room) => room.name.toLowerCase() === groupName.trim().toLowerCase()
-    );
-
-    if (exists) {
-      alert("A group with this name already exists!");
-      return;
-    }
-
     await createGroup({
       variables: {
-        name: groupName.trim(),
+        name: groupName,
       },
     });
-
     setGroupName("");
+    refetch();
+  };
+
+  const handleJoinGroup = async () => {
+    if (!joinGroupName.trim()) return;
+    await joinGroup({
+      variables: {
+        name: joinGroupName,
+      },
+    });
+    setJoinGroupName("");
     refetch();
   };
 
@@ -75,7 +78,7 @@ export default function Home() {
       <Navbar />
 
       <div className="pt-24 px-6 max-w-7xl mx-auto flex gap-6">
-        {/* Left Column – Create Group */}
+        {/* Left Column – Create/Join */}
         <div className="w-full md:w-1/3 space-y-6">
           <Card>
             <CardHeader>
@@ -98,35 +101,29 @@ export default function Home() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Existing Groups (Test Links)</CardTitle>
+              <CardTitle>Join Group by Name</CardTitle>
             </CardHeader>
-            <CardContent>
-              {data.rooms.length > 0 ? (
-                <ul className="space-y-2">
-                  {data.rooms.map((room) => (
-                    <li key={room.id} className="flex items-center justify-between">
-                      <span>{room.name}</span>
-                      <Link
-                        href={{
-                          pathname: `/room/${room.id}`,
-                          query: { name: room.name, createdAt: room.createdAt },
-                        }}
-                        className="text-electric-blue underline"
-                      >
-                        Open
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">No groups yet.</p>
-              )}
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Group Name to Join..."
+                value={joinGroupName}
+                onChange={(e) => setJoinGroupName(e.target.value)}
+              />
+              <Button
+                className="w-full bg-gradient-to-r from-electric-blue to-neon-green text-white"
+                onClick={handleJoinGroup}
+              >
+                Join Group
+              </Button>
             </CardContent>
           </Card>
+
+          
         </div>
 
-        {/* Right Column – Rooms Grid */}
+        {/* Right Column – Your Original Rooms Grid */}
         <div className="w-full md:w-2/3">
+          {/* Search + Create */}
           <motion.div
             className="flex flex-col sm:flex-row gap-4 mb-8"
             initial={{ opacity: 0, y: 20 }}
@@ -146,12 +143,9 @@ export default function Home() {
                 className="pl-10 py-3 rounded-xl border-2 border-transparent bg-card focus:border-electric-blue transition-all duration-300"
               />
             </div>
-            <Button className="px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-green text-white rounded-xl font-semibold hover:shadow-xl transition-all duration-300 border-0">
-              <Plus className="mr-2" size={18} />
-              Create Room
-            </Button>
           </motion.div>
 
+          {/* Rooms Grid */}
           <motion.div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             initial={{ opacity: 0 }}

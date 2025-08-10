@@ -71,6 +71,8 @@ export const typeDefs = gql`
 
   type Mutation {
     createGroup(name: String!): Room!
+    joinGroup(name: String!): Room!
+    getOrCreateChat(username: String!): Room!
     signup(username: String!, email: String, password: String!): AuthPayload!
     login(username: String!, password: String!): AuthPayload!
     updateProfile(bio: String, notificationsEnabled: Boolean): User!
@@ -164,6 +166,62 @@ export const resolvers = {
         createdBy: user.id
       });
       return group.populate('members');
+    },
+    joinGroup: async (_, { name }, { user, models }) => {
+      if (!user) throw new Error("Authentication required");
+      name = name.trim();
+      if (!name) throw new Error("Group name is required");
+      const group = await Room.findOne({ name }).populate("members createdBy");
+      if (!group) throw new Error("Group not found");
+      if (!group.isGroup) throw new Error("Not a group");
+
+      if (!group.members.some(member => member.id.toString() === user.id.toString())) {
+        group.members.push(user.id);
+        await group.save();
+        await group.populate("members createdBy");
+      }
+
+      return group;
+    },
+    getOrCreateChat: async (_, { username }, { user, models }) => {
+      if (!user) throw new Error("Authentication required");
+      if (user.username === username) throw new Error("Cannot chat with yourself");
+
+      const otherUser = await User.findOne({ username });
+      if (!otherUser) throw new Error("User not found");
+
+      let room = await Room.findOne({
+        isGroup: false,
+        members: { $all: [user.id, otherUser.id], $size: 2 },
+      }).populate("members createdBy");
+
+      if (!room) {
+        const sortedNames = [user.username, otherUser.username].sort();
+        const roomName = `chat ${sortedNames[0]}-${sortedNames[1]}`;
+
+        room = await Room.create({
+          name: roomName,
+          isGroup: false,
+          members: [user.id, otherUser.id],
+          createdBy: user.id,
+        });
+
+        await room.populate("members createdBy");
+
+        await Message.create({
+          content: "hi",
+          sender: user.id,
+          roomId: room._id,
+        });
+
+        await Message.create({
+          content: "hi",
+          sender: otherUser.id,
+          roomId: room._id,
+        });
+      }
+
+      return room;
     },
     signup: async (_, { username, email, password }) => {
       const existing = await User.findOne({ username });
