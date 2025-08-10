@@ -88,11 +88,6 @@ export function Navbar() {
                 Login
               </Button>
             </Link>
-            <Link href="/signup">
-              <Button className="bg-gradient-to-r from-electric-blue to-neon-green text-white border-0 hover:shadow-lg">
-                Get Started
-              </Button>
-            </Link>
           </div>
         )}
 

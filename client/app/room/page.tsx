@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { GET_ROOMS } from "../../graphql/queries";
-import { CREATE_GROUP } from "../../graphql/mutation";
-import { JOIN_GROUP} from "../../graphql/mutation"; // Import here
+import {
+  CREATE_GROUP,
+  JOIN_GROUP,
+  GET_OR_CREATE_CHAT,
+} from "../../graphql/mutation";
 import { motion } from "framer-motion";
 import { MessageCircle, Users, Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,12 +22,14 @@ export default function Home() {
   const { data, loading, error, refetch } = useQuery(GET_ROOMS);
   const [createGroup] = useMutation(CREATE_GROUP);
   const [joinGroup] = useMutation(JOIN_GROUP);
+  const [getOrCreateChat] = useMutation(GET_OR_CREATE_CHAT);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [groupName, setGroupName] = useState("");
   const [joinGroupName, setJoinGroupName] = useState("");
+  const [chatUsername, setChatUsername] = useState("");
 
-  if (loading) {
+  if (loading)
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Navbar />
@@ -37,15 +42,13 @@ export default function Home() {
         </div>
       </div>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <p className="text-red-500 font-medium">Error: {error.message}</p>
       </div>
     );
-  }
 
   const filteredRooms = data.rooms.filter((room) =>
     room.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -53,24 +56,35 @@ export default function Home() {
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) return;
-    await createGroup({
-      variables: {
-        name: groupName,
-      },
-    });
-    setGroupName("");
-    refetch();
+    try {
+      await createGroup({ variables: { name: groupName } });
+      setGroupName("");
+      refetch();
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleJoinGroup = async () => {
     if (!joinGroupName.trim()) return;
-    await joinGroup({
-      variables: {
-        name: joinGroupName,
-      },
-    });
-    setJoinGroupName("");
-    refetch();
+    try {
+      await joinGroup({ variables: { name: joinGroupName } });
+      setJoinGroupName("");
+      refetch();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleGetOrCreateChat = async () => {
+    if (!chatUsername.trim()) return;
+    try {
+      await getOrCreateChat({ variables: { username: chatUsername } });
+      setChatUsername("");
+      refetch();
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   return (
@@ -82,7 +96,7 @@ export default function Home() {
         <div className="w-full md:w-1/3 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Create Group</CardTitle>
+              <CardTitle>Create / Join Group / Chat</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Input
@@ -96,14 +110,7 @@ export default function Home() {
               >
                 Create Group
               </Button>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Join Group by Name</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <Input
                 placeholder="Group Name to Join..."
                 value={joinGroupName}
@@ -115,13 +122,23 @@ export default function Home() {
               >
                 Join Group
               </Button>
+
+              <Input
+                placeholder="Username to Chat..."
+                value={chatUsername}
+                onChange={(e) => setChatUsername(e.target.value)}
+              />
+              <Button
+                className="w-full bg-gradient-to-r from-electric-blue to-neon-green text-white"
+                onClick={handleGetOrCreateChat}
+              >
+                Start Chat
+              </Button>
             </CardContent>
           </Card>
-
-          
         </div>
 
-        {/* Right Column – Your Original Rooms Grid */}
+        {/* Right Column – Rooms Grid */}
         <div className="w-full md:w-2/3">
           {/* Search + Create */}
           <motion.div
@@ -143,6 +160,10 @@ export default function Home() {
                 className="pl-10 py-3 rounded-xl border-2 border-transparent bg-card focus:border-electric-blue transition-all duration-300"
               />
             </div>
+            <Button className="px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-green text-white rounded-xl font-semibold hover:shadow-xl transition-all duration-300 border-0">
+              <Plus className="mr-2" size={18} />
+              Create Room
+            </Button>
           </motion.div>
 
           {/* Rooms Grid */}
@@ -182,7 +203,8 @@ export default function Home() {
                           {room.name}
                         </CardTitle>
                         <p className="text-sm opacity-70 mb-3">
-                          Created {new Date(room.createdAt).toLocaleDateString()}
+                          Created{" "}
+                          {new Date(room.createdAt).toLocaleDateString()}
                         </p>
                         <div className="flex items-center text-sm opacity-60">
                           <Users size={14} className="mr-1" />

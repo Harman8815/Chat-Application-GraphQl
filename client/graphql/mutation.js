@@ -55,3 +55,20 @@ export const JOIN_GROUP = gql`
     }
   }
 `;
+export const GET_OR_CREATE_CHAT = gql`
+  mutation GetOrCreateChat($username: String!) {
+    getOrCreateChat(username: $username) {
+      id
+      name
+      isGroup
+      members {
+        id
+        username
+      }
+      createdBy {
+        id
+        username
+      }
+    }
+  }
+`;

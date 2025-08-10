@@ -209,13 +209,13 @@ export const resolvers = {
         await room.populate("members createdBy");
 
         await Message.create({
-          content: "hi",
+          content: "Joined the chat",
           sender: user.id,
           roomId: room._id,
         });
 
         await Message.create({
-          content: "hi",
+          content: "Joined the chat",
           sender: otherUser.id,
           roomId: room._id,
         });
