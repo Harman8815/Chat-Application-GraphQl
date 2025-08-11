@@ -104,3 +104,11 @@ export const GET_USERS = gql`
     }
   }
 `;
+export const GET_ROOM_USERS = gql`
+  query GetRoomUsers($roomId: ID!) {
+    roomUsers(roomId: $roomId) {
+      id
+      username
+    }
+  }
+`;

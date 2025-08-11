@@ -64,12 +64,15 @@ export const typeDefs = gql`
     me: User!
     messages(roomId: ID!): [Message!]!
     rooms: [Room!]!
-    users: [User!]!
+    
+    roomUsers(roomId: ID!): [User!]!
     getRoomShareLink(roomId: ID!): String!
     getUserChatLink(userId: ID!): String!
   }
 
   type Mutation {
+  leaveGroup(roomId: ID!): Room!
+  deleteGroup(roomId: ID!): Boolean!
     createGroup(name: String!): Room!
     joinGroup(name: String!): Room!
     getOrCreateChat(username: String!): Room!
@@ -135,7 +138,11 @@ export const resolvers = {
       if (!user) throw new Error("Not authenticated");
       return await Room.find({ members: user.id }).populate('members');
     },
-    users: async () => await User.find(),
+    roomUsers: async (_, { roomId }, { models }) => {
+      const room = await Room.findById(roomId).populate('members');
+      if (!room) throw new Error("Room not found");
+      return room.members;
+    },
     getRoomShareLink: async (_, { roomId }, { user }) => {
       if (!user) throw new Error("Not authenticated");
       const room = await Room.findById(roomId);
@@ -166,6 +173,36 @@ export const resolvers = {
         createdBy: user.id
       });
       return group.populate('members');
+    }, leaveGroup: async (_, { roomId }, { user, models }) => {
+      if (!user) throw new Error("Authentication required");
+
+      const group = await Room.findById(roomId);
+      if (!group) throw new Error("Group not found");
+
+      group.members = group.members.filter(
+        (memberId) => memberId.toString() !== user.id.toString()
+      );
+
+      await group.save();
+      return group.populate("members createdBy");
+    },
+
+    deleteGroup: async (_, { roomId }, { user, models }) => {
+      if (!user) throw new Error("Authentication required");
+
+      const group = await Room.findById(roomId);
+      if (!group) throw new Error("Group not found");
+
+      // Only allow creator or admin to delete
+      if (group.createdBy.toString() !== user.id.toString()) {
+        throw new Error("Not authorized to delete this group");
+      }
+
+      await Room.deleteOne({ _id: roomId });
+
+      // Optionally: delete messages linked to this room here
+
+      return true;
     },
     joinGroup: async (_, { name }, { user, models }) => {
       if (!user) throw new Error("Authentication required");
@@ -252,6 +289,14 @@ export const resolvers = {
     },
     sendMessage: async (_, { content, roomId, replyTo }, { user }) => {
       if (!user) throw new Error("Not authenticated");
+
+      // Find the room and check if the user is a member
+      const room = await Room.findById(roomId).populate('members');
+      if (!room) throw new Error("Room not found");
+
+      const isMember = room.members.some(member => member.id.toString() === user.id.toString());
+      if (!isMember) throw new Error("You are not a member of this room");
+
       const message = await Message.create({
         content: safeString(content, 'message'),
         sender: user.id,
@@ -262,6 +307,7 @@ export const resolvers = {
       pubsub.publish(`MESSAGE_ADDED_${roomId}`, { messageAdded: populatedMessage });
       return populatedMessage;
     }
+
   },
 
   Subscription: {

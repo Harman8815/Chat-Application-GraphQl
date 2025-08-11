@@ -2,17 +2,19 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useQuery, useSubscription } from "@apollo/client";
+import { useQuery, useSubscription, useMutation } from "@apollo/client";
 import { GET_MESSAGES } from "@/graphql/queries";
 import { MESSAGE_SUBSCRIPTION } from "@/graphql/subscription";
+import { LEAVE_GROUP, DELETE_GROUP } from "@/graphql/mutation"; // your new mutations
 import { SendMessage } from "@/components/SendMessage";
 import { Navbar } from "@/components/navbar";
+import { GET_ROOM_USERS } from "@/graphql/queries";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast"; // import your toast hook
 
-// 🎨 Consistent gradient color generator per user
 const getUserColor = (userId: string) => {
   const colors = [
     "from-electric-blue to-neon-green",
@@ -33,27 +35,26 @@ export default function RoomPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [messages, setMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const roomName = searchParams.get("name") || "Unnamed Room";
 
-  // 🔹 Fetch messages
   const { loading, error, data } = useQuery(GET_MESSAGES, {
     variables: { roomId: roomID },
     skip: !roomID,
     fetchPolicy: "cache-and-network",
   });
 
-  // 🔹 Load fetched messages
+  const [leaveGroup] = useMutation(LEAVE_GROUP);
+  const [deleteGroup] = useMutation(DELETE_GROUP);
+
   useEffect(() => {
-    if (data?.messages) {
-      setMessages(data.messages);
-    }
+    if (data?.messages) setMessages(data.messages);
   }, [data]);
 
-  // 🔹 Listen for new messages
   useSubscription(MESSAGE_SUBSCRIPTION, {
     variables: { roomId: roomID },
     skip: !roomID,
@@ -69,15 +70,54 @@ export default function RoomPage() {
     },
   });
 
-  // 🔹 Scroll to bottom on message change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 🔹 Extract unique users
-  const uniqueUsers = Array.from(
-    new Map(messages.map((m) => [m.sender.id, m.sender])).values()
-  );
+  const {
+    loading: usersLoading,
+    error: usersError,
+    data: usersData,
+  } = useQuery(GET_ROOM_USERS, {
+    variables: { roomId: roomID },
+    skip: !roomID,
+    fetchPolicy: "cache-and-network",
+  });
+  const uniqueUsers = usersData?.roomUsers || [];
+
+  async function handleLeaveGroup() {
+    try {
+      await leaveGroup({ variables: { roomId: roomID } });
+      toast.toast({
+        title: "Left group successfully",
+        description: `You left "${roomName}"`,
+      });
+      router.push("/room"); // redirect to homepage or chat list
+    } catch (e: any) {
+      toast.toast({
+        title: "Error leaving group",
+        description: e.message,
+        action: undefined,
+      });
+    }
+  }
+
+  async function handleDeleteGroup() {
+    try {
+      await deleteGroup({ variables: { roomId: roomID } });
+      toast.toast({
+        title: "Group deleted",
+        description: `"${roomName}" has been deleted`,
+      });
+      router.push("/room"); // redirect to homepage or chat list
+    } catch (e: any) {
+      toast.toast({
+        title: "Error deleting group",
+        description: e.message,
+        action: undefined,
+      });
+    }
+  }
 
   if (loading) {
     return (
@@ -102,8 +142,6 @@ export default function RoomPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-500">
       <Navbar />
-
-      {/* Top Bar */}
       <div className="flex items-center gap-4 px-6 py-4 border-b border-border mt-16">
         <Button
           variant="ghost"
@@ -116,24 +154,45 @@ export default function RoomPage() {
         <h2 className="text-xl font-semibold truncate">Room: {roomName}</h2>
       </div>
 
-      {/* Three-column layout */}
-      <div className="flex flex-1 max-h-[calc(100vh-260px)] overflow-hidden">
-        {/* Left: Users list */}
-        <div className="w-80 border-r border-border p-4 px-10 space-y-3 overflow-y-auto">
-          <h1 className="text-xl font-semibold">All Users</h1>
-          {uniqueUsers.map((u) => (
-            <div
-              key={u.id}
-              className={`p-2 rounded-full text-center text-sm font-medium bg-gradient-to-r ${getUserColor(
-                u.id
-              )} text-white shadow-md`}
+      <div className="flex flex-1 max-h-[calc(100vh-150px)] overflow-hidden relative">
+        <div className="w-80 min-h-[calc(100vh-150px)] border-r border-border p-4 px-10 flex flex-col h-full overflow-y-auto">
+          <div>
+            <h1 className="text-xl font-semibold mb-4">All Users</h1>
+            {usersLoading && <p>Loading users...</p>}
+            {usersError && <p className="text-red-500">Failed to load users</p>}
+            {!usersLoading && !usersError && uniqueUsers.length === 0 && (
+              <p>No users in this room</p>
+            )}
+            {uniqueUsers.map((u) => (
+              <div
+                key={u.id}
+                className={`p-2 rounded-full text-center text-sm font-medium bg-gradient-to-r ${getUserColor(
+                  u.id
+                )} text-white shadow-md mb-2`}
+              >
+                {u.username}
+              </div>
+            ))}
+          </div>
+
+          <hr className="my-4 border-t border-gray-300" />
+
+          <div className="flex flex-row gap-4 mt-auto">
+            <Button
+              className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:shadow-xl transition-all duration-300 border-0"
+              onClick={handleLeaveGroup}
             >
-              {u.username}
-            </div>
-          ))}
+              Leave Group
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white rounded-xl font-semibold hover:shadow-xl transition-all duration-300 border-0"
+              onClick={handleDeleteGroup}
+            >
+              Delete Group
+            </Button>
+          </div>
         </div>
 
-        {/* Center: Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <div className="flex flex-col space-y-4">
             {messages.map((msg) => {
@@ -146,7 +205,9 @@ export default function RoomPage() {
                   className={`max-w-[60%] w-fit p-3 rounded-xl border-2 border-border shadow-lg bg-gradient-to-r ${getUserColor(
                     msg.sender.id
                   )} text-white ${
-                    isOwnMessage ? "self-end text-right" : "self-start text-left"
+                    isOwnMessage
+                      ? "self-end text-right"
+                      : "self-start text-left"
                   }`}
                 >
                   {!isOwnMessage && (
@@ -167,9 +228,8 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* Right: Send message */}
         <div className="w-[30vw] border-l border-border p-4 flex flex-col justify-end">
-          <SendMessage roomId={roomID} />
+          <SendMessage roomId={roomID} onMessageSent={() => {}} />
         </div>
       </div>
     </div>

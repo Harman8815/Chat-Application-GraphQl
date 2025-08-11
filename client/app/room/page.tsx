@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client";
 import { GET_ROOMS } from "../../graphql/queries";
 import {
@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
 export default function Home() {
-  const { user } = useAuth();
   const { data, loading, error, refetch } = useQuery(GET_ROOMS);
   const [createGroup] = useMutation(CREATE_GROUP);
   const [joinGroup] = useMutation(JOIN_GROUP);
@@ -28,6 +27,9 @@ export default function Home() {
   const [groupName, setGroupName] = useState("");
   const [joinGroupName, setJoinGroupName] = useState("");
   const [chatUsername, setChatUsername] = useState("");
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   if (loading)
     return (

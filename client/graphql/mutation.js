@@ -72,3 +72,25 @@ export const GET_OR_CREATE_CHAT = gql`
     }
   }
 `;
+export const LEAVE_GROUP = gql`
+  mutation LeaveGroup($roomId: ID!) {
+    leaveGroup(roomId: $roomId) {
+      id
+      name
+      members {
+        id
+        username
+      }
+      createdBy {
+        id
+        username
+      }
+    }
+  }
+`;
+
+export const DELETE_GROUP = gql`
+  mutation DeleteGroup($roomId: ID!) {
+    deleteGroup(roomId: $roomId)
+  }
+`;
