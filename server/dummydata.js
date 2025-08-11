@@ -31,49 +31,49 @@ async function seedData() {
       }))
     );
 
-    // const rooms = [];
-    // for (let i = 0; i < 10; i++) {
-    //   const isGroup = i % 2 === 0;
-    //   const shuffledUsers = [...users].sort(() => 0.5 - Math.random());
-    //   const memberCount = isGroup ? Math.floor(Math.random() * 4) + 3 : 2;
-    //   const members = shuffledUsers.slice(0, memberCount).map((u) => u._id);
+    const rooms = [];
+    for (let i = 0; i < 10; i++) {
+      const isGroup = i % 2 === 0;
+      const shuffledUsers = [...users].sort(() => 0.5 - Math.random());
+      const memberCount = isGroup ? Math.floor(Math.random() * 4) + 3 : 2;
+      const members = shuffledUsers.slice(0, memberCount).map((u) => u._id);
 
-    //   const room = await Room.create({
-    //     name: isGroup ? `Group Room ${i + 1}` : `Private Room ${i + 1}`,
-    //     isGroup,
-    //     members,
-    //     createdBy: members[0]
-    //   });
-    //   rooms.push(room);
-    // }
+      const room = await Room.create({
+        name: isGroup ? `Group Room ${i + 1}` : `Private Room ${i + 1}`,
+        isGroup,
+        members,
+        createdBy: members[0]
+      });
+      rooms.push(room);
+    }
 
-    // const sampleMessages = [
-    //   "Hello there!",
-    //   "What's up?",
-    //   "Good morning!",
-    //   "How are you doing?",
-    //   "Let's catch up soon.",
-    //   "Interesting topic!",
-    //   "Nice to meet you!",
-    //   "I'm doing great, thanks!",
-    //   "See you later.",
-    //   "That sounds fun!"
-    // ];
+    const sampleMessages = [
+      "Hello there!",
+      "What's up?",
+      "Good morning!",
+      "How are you doing?",
+      "Let's catch up soon.",
+      "Interesting topic!",
+      "Nice to meet you!",
+      "I'm doing great, thanks!",
+      "See you later.",
+      "That sounds fun!"
+    ];
 
-    // for (const room of rooms) {
-    //   const roomMembers = room.members;
-    //   const messageCount = Math.floor(Math.random() * 10) + 5;
-    //   for (let i = 0; i < messageCount; i++) {
-    //     const randomUser = roomMembers[Math.floor(Math.random() * roomMembers.length)];
-    //     const randomContent = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
-    //     await Message.create({
-    //       content: randomContent,
-    //       sender: randomUser,
-    //       roomId: room._id,
-    //       status: "sent"
-    //     });
-    //   }
-    // }
+    for (const room of rooms) {
+      const roomMembers = room.members;
+      const messageCount = Math.floor(Math.random() * 10) + 5;
+      for (let i = 0; i < messageCount; i++) {
+        const randomUser = roomMembers[Math.floor(Math.random() * roomMembers.length)];
+        const randomContent = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+        await Message.create({
+          content: randomContent,
+          sender: randomUser,
+          roomId: room._id,
+          status: "sent"
+        });
+      }
+    }
 
     console.log("Dummy data seeded successfully");
     process.exit(0);

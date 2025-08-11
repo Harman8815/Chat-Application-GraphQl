@@ -64,15 +64,14 @@ export const typeDefs = gql`
     me: User!
     messages(roomId: ID!): [Message!]!
     rooms: [Room!]!
-    
     roomUsers(roomId: ID!): [User!]!
     getRoomShareLink(roomId: ID!): String!
     getUserChatLink(userId: ID!): String!
   }
 
   type Mutation {
-  leaveGroup(roomId: ID!): Room!
-  deleteGroup(roomId: ID!): Boolean!
+    leaveGroup(roomId: ID!): Room!
+    deleteGroup(roomId: ID!): Boolean!
     createGroup(name: String!): Room!
     joinGroup(name: String!): Room!
     getOrCreateChat(username: String!): Room!
@@ -100,8 +99,9 @@ export const resolvers = {
     notificationsEnabled: (parent) => parent.notificationsEnabled ?? true,
     emailVerified: (parent) => parent.emailVerified ?? false,
     createdAt: (parent) => safeDate(parent.createdAt),
-    updatedAt: (parent) => safeDate(parent.updatedAt)
+    updatedAt: (parent) => safeDate(parent.updatedAt),
   },
+
   Room: {
     id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
     name: (parent) => safeString(parent.name, 'room'),
@@ -109,8 +109,9 @@ export const resolvers = {
     members: (parent) => parent.members || [],
     createdBy: (parent) => parent.createdBy || null,
     createdAt: (parent) => safeDate(parent.createdAt),
-    updatedAt: (parent) => safeDate(parent.updatedAt)
+    updatedAt: (parent) => safeDate(parent.updatedAt),
   },
+
   Message: {
     id: (parent) => parent._id?.toString() || `${Math.floor(Math.random() * 1000000)}`,
     content: (parent) => safeString(parent.content, 'message'),
@@ -120,7 +121,7 @@ export const resolvers = {
     replyTo: (parent) => parent.replyTo || null,
     status: (parent) => parent.status || 'sent',
     createdAt: (parent) => safeDate(parent.createdAt),
-    updatedAt: (parent) => safeDate(parent.updatedAt)
+    updatedAt: (parent) => safeDate(parent.updatedAt),
   },
 
   Query: {
@@ -138,7 +139,7 @@ export const resolvers = {
       if (!user) throw new Error("Not authenticated");
       return await Room.find({ members: user.id }).populate('members');
     },
-    roomUsers: async (_, { roomId }, { models }) => {
+    roomUsers: async (_, { roomId }) => {
       const room = await Room.findById(roomId).populate('members');
       if (!room) throw new Error("Room not found");
       return room.members;
@@ -154,7 +155,7 @@ export const resolvers = {
       const targetUser = await User.findById(userId);
       if (!targetUser) throw new Error("User not found");
       return `${process.env.FRONTEND_URL}/chat/user/${targetUser.id}`;
-    }
+    },
   },
 
   Mutation: {
@@ -163,17 +164,19 @@ export const resolvers = {
       const groupName = name.trim();
       const existingGroup = await Room.findOne({
         name: { $regex: `^${groupName}$`, $options: 'i' },
-        isGroup: true
+        isGroup: true,
       });
       if (existingGroup) throw new Error("Group with this name already exists");
       const group = await Room.create({
         name: groupName,
         isGroup: true,
         members: [user.id],
-        createdBy: user.id
+        createdBy: user.id,
       });
       return group.populate('members');
-    }, leaveGroup: async (_, { roomId }, { user, models }) => {
+    },
+
+    leaveGroup: async (_, { roomId }, { user }) => {
       if (!user) throw new Error("Authentication required");
 
       const group = await Room.findById(roomId);
@@ -187,28 +190,25 @@ export const resolvers = {
       return group.populate("members createdBy");
     },
 
-    deleteGroup: async (_, { roomId }, { user, models }) => {
+    deleteGroup: async (_, { roomId }, { user }) => {
       if (!user) throw new Error("Authentication required");
 
       const group = await Room.findById(roomId);
       if (!group) throw new Error("Group not found");
 
-      // Only allow creator or admin to delete
       if (group.createdBy.toString() !== user.id.toString()) {
         throw new Error("Not authorized to delete this group");
       }
 
       await Room.deleteOne({ _id: roomId });
-
-      // Optionally: delete messages linked to this room here
-
       return true;
     },
-    joinGroup: async (_, { name }, { user, models }) => {
+
+    joinGroup: async (_, { name }, { user }) => {
       if (!user) throw new Error("Authentication required");
-      name = name.trim();
-      if (!name) throw new Error("Group name is required");
-      const group = await Room.findOne({ name }).populate("members createdBy");
+      const groupName = name.trim();
+      if (!groupName) throw new Error("Group name is required");
+      const group = await Room.findOne({ name: groupName }).populate("members createdBy");
       if (!group) throw new Error("Group not found");
       if (!group.isGroup) throw new Error("Not a group");
 
@@ -220,7 +220,8 @@ export const resolvers = {
 
       return group;
     },
-    getOrCreateChat: async (_, { username }, { user, models }) => {
+
+    getOrCreateChat: async (_, { username }, { user }) => {
       if (!user) throw new Error("Authentication required");
       if (user.username === username) throw new Error("Cannot chat with yourself");
 
@@ -260,6 +261,7 @@ export const resolvers = {
 
       return room;
     },
+
     signup: async (_, { username, email, password }) => {
       const existing = await User.findOne({ username });
       if (existing) throw new Error("Username already taken");
@@ -268,6 +270,7 @@ export const resolvers = {
       const token = generateToken(user);
       return { token, user };
     },
+
     login: async (_, { username, password }) => {
       const user = await User.findOne({ username });
       if (!user) throw new Error("User not found");
@@ -279,6 +282,7 @@ export const resolvers = {
       await user.save();
       return { token, user };
     },
+
     updateProfile: async (_, { bio, notificationsEnabled }, { user }) => {
       if (!user) throw new Error("Not authenticated");
       return await User.findByIdAndUpdate(
@@ -287,10 +291,10 @@ export const resolvers = {
         { new: true }
       );
     },
+
     sendMessage: async (_, { content, roomId, replyTo }, { user }) => {
       if (!user) throw new Error("Not authenticated");
 
-      // Find the room and check if the user is a member
       const room = await Room.findById(roomId).populate('members');
       if (!room) throw new Error("Room not found");
 
@@ -301,18 +305,18 @@ export const resolvers = {
         content: safeString(content, 'message'),
         sender: user.id,
         roomId,
-        replyTo: replyTo || null
+        replyTo: replyTo || null,
       });
+
       const populatedMessage = await message.populate(['sender', 'replyTo', 'roomId']);
       pubsub.publish(`MESSAGE_ADDED_${roomId}`, { messageAdded: populatedMessage });
       return populatedMessage;
-    }
-
+    },
   },
 
   Subscription: {
     messageAdded: {
-      subscribe: (_, { roomId }) => pubsub.asyncIterableIterator(`MESSAGE_ADDED_${roomId}`)
-    }
-  }
+      subscribe: (_, { roomId }) => pubsub.asyncIterator(`MESSAGE_ADDED_${roomId}`),
+    },
+  },
 };
