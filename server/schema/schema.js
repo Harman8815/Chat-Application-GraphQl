@@ -3,7 +3,7 @@ import { PubSub } from 'graphql-subscriptions';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../utils/auth.js';
 import User from '../models/User.js';
-import Room from '../models/Room.js';
+import Room from '../models/room.js';
 import Message from '../models/Message.js';
 
 export const pubsub = new PubSub();
