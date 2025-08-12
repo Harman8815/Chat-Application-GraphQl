@@ -9,14 +9,14 @@ const getToken = () =>
   typeof window !== "undefined" ? localStorage.getItem("token") : "";
 
 const httpLink = new HttpLink({
-  uri: "http://localhost:4000/graphql",
+  uri: "https://chat-application-graphql.onrender.com/graphql",
   headers: {
     authorization: getToken() ? `Bearer ${getToken()}` : "",
   },
 });
 const wsClient = typeof window !== "undefined"
   ? createClient({
-    url: "ws://localhost:4000/graphql",
+    url: "wss://chat-application-graphql.onrender.com/graphql",
     connectionParams: () => ({
       Authorization: getToken() ? `Bearer ${getToken()}` : "",
     }),
