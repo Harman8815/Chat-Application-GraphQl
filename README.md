@@ -119,8 +119,16 @@ Visit: [http://localhost:3000](http://localhost:3000)
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="public/screenshots/home.png" alt="Chat App Home" width="600"/>
-  <img src="public/screenshots/chat.png" alt="Chat Window" width="600"/>
+  <img width="1921" height="4598" alt="screencapture-localhost-3000-2025-08-12-19_10_43" src="https://github.com/user-attachments/assets/fc807950-5cf1-401e-a8f8-e837b44d129a" />
+
+<img width="1920" height="946" alt="ScreenShot_20250812191447" src="https://github.com/user-attachments/assets/9b7afabb-2bee-4d60-a172-a06f7744a15a" />
+  <img width="1920" height="946" alt="ScreenShot_20250812191455" src="https://github.com/user-attachments/assets/0d7bd787-be6b-4de9-8f1d-62cf64d6dfc8" />
+<img width="1920" height="946" alt="ScreenShot_20250812191529" src="https://github.com/user-attachments/assets/880aec3e-d191-4653-ace3-697b5ef2753f" />
+<img width="1920" height="946" alt="ScreenShot_20250812191503" src="https://github.com/user-attachments/assets/2c51c66d-9817-4137-a19d-2b29445c91a6" />
+
+<img width="1920" height="946" alt="ScreenShot_20250812191519" src="https://github.com/user-attachments/assets/774ef7b4-1fa8-4631-b395-527fe331b7b4" />
+<img width="1920" height="946" alt="ScreenShot_20250812191511" src="https://github.com/user-attachments/assets/cd0f9c7c-ef6f-473a-bfcf-7b35ab612888" />
+
 </div>
 
 ---
